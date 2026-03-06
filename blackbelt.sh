@@ -1,29 +1,43 @@
 #!/bin/bash
 
-# ==============================
+# =====================================
 
-# ☠️ BLACK BELT BUG BOUNTY RECON
+# ☠️ GOD-MODE BUG BOUNTY RECON FRAMEWORK
 
-# ==============================
+# =====================================
 
 INPUT=$1
-THREADS=400
-OUT=blackbelt_recon
+THREADS=500
+OUT=godmode_recon
 
 mkdir -p $OUT
-ulimit -n 200000
 
-echo "[+] Starting Black-Belt Recon"
+# ==============================
 
-# ------------------------------
+# 🔧 PERFORMANCE TWEAKS
+
+# ==============================
+
+echo "[+] Applying performance tweaks..."
+
+ulimit -n 1000000
+export GOMAXPROCS=16
+
+sysctl -w net.core.somaxconn=65535
+sysctl -w net.ipv4.tcp_max_syn_backlog=65535
+sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+
+echo "[+] Starting GOD MODE Recon"
+
+# ==============================
 
 # 1️⃣ SUBDOMAIN ENUMERATION
 
-# ------------------------------
+# ==============================
 
 echo "[+] Enumerating subdomains..."
 
-cat $INPUT | xargs -P 80 -I{} sh -c '
+cat $INPUT | xargs -P 100 -I{} sh -c '
 proxychains4 subfinder -d {} -silent
 proxychains4 assetfinder --subs-only {}
 proxychains4 chaos -d {}
@@ -32,11 +46,11 @@ proxychains4 amass enum -passive -d {}
 
 sort -u $OUT/subs_raw.txt > $OUT/subdomains.txt
 
-# ------------------------------
+# ==============================
 
 # 2️⃣ DNS RESOLUTION
 
-# ------------------------------
+# ==============================
 
 echo "[+] Resolving domains..."
 
@@ -46,27 +60,27 @@ proxychains4 dnsx
 -threads $THREADS 
 -o $OUT/resolved.txt
 
-# ------------------------------
+# ==============================
 
 # 3️⃣ PORT SCANNING
 
-# ------------------------------
+# ==============================
 
 echo "[+] Scanning ports..."
 
 proxychains4 naabu 
 -l $OUT/resolved.txt 
 -top-ports 1000 
--rate 5000 
+-rate 8000 
 -o $OUT/open_ports.txt
 
-# ------------------------------
+# ==============================
 
-# 4️⃣ LIVE HOST DISCOVERY
+# 4️⃣ LIVE HOST DETECTION
 
-# ------------------------------
+# ==============================
 
-echo "[+] Detecting live services..."
+echo "[+] Probing HTTP services..."
 
 proxychains4 httpx 
 -l $OUT/resolved.txt 
@@ -78,22 +92,22 @@ proxychains4 httpx
 -ip 
 -o $OUT/live_hosts.txt
 
-# ------------------------------
+# ==============================
 
-# 5️⃣ HISTORICAL URL DISCOVERY
+# 5️⃣ HISTORICAL URL HARVESTING
 
-# ------------------------------
+# ==============================
 
 echo "[+] Gathering historical URLs..."
 
 cat $OUT/live_hosts.txt | gau >> $OUT/urls_raw.txt
 cat $OUT/live_hosts.txt | waybackurls >> $OUT/urls_raw.txt
 
-# ------------------------------
+# ==============================
 
 # 6️⃣ ADVANCED CRAWLING
 
-# ------------------------------
+# ==============================
 
 echo "[+] Crawling sites..."
 
@@ -105,57 +119,57 @@ proxychains4 katana
 -silent 
 -o $OUT/crawled_urls.txt
 
-# ------------------------------
+# ==============================
 
-# 7️⃣ URL MERGING
+# 7️⃣ URL MERGE
 
-# ------------------------------
+# ==============================
 
 cat $OUT/urls_raw.txt $OUT/crawled_urls.txt 
 | sort -u > $OUT/all_urls.txt
 
-# ------------------------------
+# ==============================
 
 # 8️⃣ PARAMETER DISCOVERY
 
-# ------------------------------
+# ==============================
 
 grep "=" $OUT/all_urls.txt 
 | sort -u > $OUT/params.txt
 
-# ------------------------------
+# ==============================
 
-# 9️⃣ JAVASCRIPT FILES
+# 9️⃣ JAVASCRIPT ANALYSIS
 
-# ------------------------------
+# ==============================
 
 grep ".js" $OUT/all_urls.txt 
 | sort -u > $OUT/js_files.txt
 
-# ------------------------------
+# ==============================
 
 # 🔟 SECRET DISCOVERY
 
-# ------------------------------
+# ==============================
 
-echo "[+] Searching JS secrets..."
+echo "[+] Extracting secrets..."
 
 cat $OUT/js_files.txt | 
 xargs -P 80 -I{} curl -s {} 
-| grep -E "apikey|token|secret|password|auth|client_secret" \
+| grep -E "apikey|token|secret|password|auth|client_secret|access_key" \
 
 > > $OUT/js_secrets.txt
 
-# ------------------------------
+# ==============================
 
 # 1️⃣1️⃣ DIRECTORY FUZZING
 
-# ------------------------------
+# ==============================
 
 echo "[+] Running directory fuzzing..."
 
 cat $OUT/live_hosts.txt | 
-xargs -P 40 -I{} 
+xargs -P 50 -I{} 
 proxychains4 ffuf 
 -u {}/FUZZ 
 -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt 
@@ -163,11 +177,11 @@ proxychains4 ffuf
 -s 
 -o $OUT/ffuf_results.txt
 
-# ------------------------------
+# ==============================
 
 # 1️⃣2️⃣ XSS TESTING
 
-# ------------------------------
+# ==============================
 
 echo "[+] Running Dalfox..."
 
@@ -176,20 +190,20 @@ dalfox pipe
 --silence 
 -o $OUT/xss_results.txt
 
-# ------------------------------
+# ==============================
 
-# 1️⃣3️⃣ VULNERABILITY SCAN
+# 1️⃣3️⃣ MASS VULNERABILITY SCAN
 
-# ------------------------------
+# ==============================
 
 echo "[+] Running Nuclei..."
 
 proxychains4 nuclei 
 -l $OUT/live_hosts.txt 
 -t ~/nuclei-templates 
--c 300 
--rate-limit 800 
+-c 500 
+-rate-limit 1500 
 -o $OUT/nuclei_results.txt
 
-echo "[+] BLACK-BELT RECON COMPLETE"
-echo "[+] Results stored in $OUT"
+echo "[+] GOD MODE RECON COMPLETE"
+echo "[+] Output directory: $OUT"
